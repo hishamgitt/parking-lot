@@ -51,7 +51,7 @@ public class ReservationService {
         return reservationRepository.save(reservation);
     }
 
-    private void validateReservationTime(LocalDateTime startTime, LocalDateTime endTime) {
+    public void validateReservationTime(LocalDateTime startTime, LocalDateTime endTime) {
         if (startTime.isAfter(endTime)) {
             throw new IllegalArgumentException("Start time must be before end time");
         }
@@ -62,7 +62,7 @@ public class ReservationService {
         }
     }
 
-    private void checkForOverlappingReservations(Long slotId,
+    public void checkForOverlappingReservations(Long slotId,
                                                  LocalDateTime startTime, LocalDateTime endTime) {
         List<Reservation> overlapping = reservationRepository
                 .findOverlappingReservations(slotId, startTime, endTime);
@@ -72,7 +72,7 @@ public class ReservationService {
         }
     }
 
-    private BigDecimal calculateCost(LocalDateTime startTime,
+    public BigDecimal calculateCost(LocalDateTime startTime,
                                      LocalDateTime endTime, VehicleType vehicleType) {
         long minutes = Duration.between(startTime, endTime).toMinutes();
         long hours = (minutes + 59) / 60;
