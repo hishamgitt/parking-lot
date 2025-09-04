@@ -1,8 +1,6 @@
 package com.parkinglot.controller;
 
-import com.parkinglot.dto.FloorRequest;
-import com.parkinglot.dto.ReservationRequest;
-import com.parkinglot.dto.SlotRequest;
+import com.parkinglot.dto.*;
 import com.parkinglot.model.Floor;
 import com.parkinglot.model.ParkingSlot;
 import com.parkinglot.model.Reservation;
@@ -21,6 +19,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -49,14 +50,34 @@ public class ParkingController {
     }
 
     @PostMapping("/reserve")
-    public ResponseEntity<Reservation> reserveSlot(@Valid @RequestBody ReservationRequest request) {
+    public ResponseEntity<ReservationResponse> reserveSlot(@Valid @RequestBody ReservationRequest request) {
         Reservation reservation = reservationService.createReservation(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(reservation);
+
+        ParkingSlot slot = reservation.getSlot();
+
+        SlotResponse slotResponse = new SlotResponse(
+                slot.getId(),
+                slot.getSlotNumber(),
+                slot.getVehicleType().getName(),
+                slot.getVehicleType().getHourlyRate(),
+                slot.getFloor().getFloorNumber()
+        );
+
+        ReservationResponse response = new ReservationResponse(
+                reservation.getId(),
+                reservation.getVehicleNumber(),
+                reservation.getStartTime(),
+                reservation.getEndTime(),
+                reservation.getTotalCost(),
+                slotResponse
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/availability")
-    public ResponseEntity<Page<ParkingSlot>> getAvailability(
-            @RequestParam VehicleType vehicleType,
+    public ResponseEntity<Map<String, Object>> getAvailability(
+            @RequestParam String vehicleType,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(defaultValue = "0") int page,
@@ -66,8 +87,13 @@ public class ParkingController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
         Page<ParkingSlot> availableSlots = reservationService
                 .getAvailableSlots(vehicleType, startTime, endTime, pageable);
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", availableSlots.getContent());
+        response.put("currentPage", availableSlots.getNumber());
+        response.put("totalItems", availableSlots.getTotalElements());
+        response.put("totalPages", availableSlots.getTotalPages());
 
-        return ResponseEntity.ok(availableSlots);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/reservations/{id}")
@@ -77,8 +103,14 @@ public class ParkingController {
     }
 
     @DeleteMapping("/reservations/{id}")
-    public ResponseEntity<Void> cancelReservation(@PathVariable Long id) {
+    public ResponseEntity<?> cancelReservation(@PathVariable Long id) {
         reservationService.cancelReservation(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(Map.of("message", "Reservation cancelled successfully"));
+    }
+
+    @GetMapping("/allparking")
+    public ResponseEntity<?> getAllFloors(){
+       List<ParkingSlot> parkingSlots = parkingService.getAllParkingSlots();
+       return ResponseEntity.ok(parkingSlots);
     }
 }

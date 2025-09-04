@@ -16,11 +16,11 @@ public class ParkingSlot {
         return id;
     }
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "vehicle_type_id", nullable = false)
     private VehicleType vehicleType;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "floor_id", nullable = false)
     private Floor floor;
 

@@ -1,4 +1,4 @@
-package com.parkinglot;
+package com.parkinglot.service;
 
 import com.parkinglot.dto.ReservationRequest;
 import com.parkinglot.model.ParkingSlot;
@@ -6,15 +6,17 @@ import com.parkinglot.model.Reservation;
 import com.parkinglot.model.VehicleType;
 import com.parkinglot.repository.ParkingSlotRepository;
 import com.parkinglot.repository.ReservationRepository;
-import com.parkinglot.service.ReservationService;
-
+import com.parkinglot.repository.VehicleTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,14 +24,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,17 +37,26 @@ class ReservationServiceTest {
     @Mock
     private ParkingSlotRepository slotRepository;
 
+    @Mock
+    private VehicleTypeRepository vehicleTypeRepository;
+
     @InjectMocks
     private ReservationService reservationService;
 
     private ParkingSlot testSlot;
+    private VehicleType vehicleType;
     private ReservationRequest validRequest;
 
     @BeforeEach
     void setUp() {
+        vehicleType = new VehicleType();
+        vehicleType.setId(1L);
+        vehicleType.setName("FOUR_WHEELER");
+        vehicleType.setHourlyRate(30);
+
         testSlot = new ParkingSlot();
         testSlot.setId(1L);
-        testSlot.setVehicleType(VehicleType.FOUR_WHEELER);
+        testSlot.setVehicleType(vehicleType);
 
         validRequest = new ReservationRequest();
         validRequest.setSlotId(1L);
@@ -70,7 +75,9 @@ class ReservationServiceTest {
             r.setId(1L);
             return r;
         });
+
         Reservation result = reservationService.createReservation(validRequest);
+
         assertNotNull(result);
         assertEquals(1L, result.getId());
         assertEquals("KA05MH1234", result.getVehicleNumber());
@@ -91,6 +98,7 @@ class ReservationServiceTest {
         when(slotRepository.findById(1L)).thenReturn(Optional.of(testSlot));
         when(reservationRepository.findOverlappingReservations(anyLong(), any(), any()))
                 .thenReturn(List.of(new Reservation()));
+
         assertThrows(IllegalStateException.class, () -> {
             reservationService.createReservation(validRequest);
         });
@@ -100,6 +108,7 @@ class ReservationServiceTest {
     void createReservation_StartTimeAfterEndTime_ThrowsException() {
         validRequest.setStartTime(LocalDateTime.now().plusHours(3));
         validRequest.setEndTime(LocalDateTime.now().plusHours(1));
+
         assertThrows(IllegalArgumentException.class, () -> {
             reservationService.createReservation(validRequest);
         });
@@ -108,6 +117,7 @@ class ReservationServiceTest {
     @Test
     void createReservation_Exceeds24Hours_ThrowsException() {
         validRequest.setEndTime(validRequest.getStartTime().plusHours(25));
+
         assertThrows(IllegalArgumentException.class, () -> {
             reservationService.createReservation(validRequest);
         });
@@ -117,21 +127,27 @@ class ReservationServiceTest {
     void calculateCost_PartialHour_RoundsUp() {
         LocalDateTime startTime = LocalDateTime.now();
         LocalDateTime endTime = startTime.plusMinutes(90);
-        BigDecimal cost = reservationService.calculateCost(startTime, endTime, VehicleType.FOUR_WHEELER);
+
+        BigDecimal cost = reservationService.calculateCost(startTime, endTime, vehicleType);
+
         assertEquals(60, cost.intValue());
     }
 
     @Test
     void getAvailableSlots_ValidRequest_ReturnsSlots() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(reservationRepository.findAvailableSlots(any(), any(), any(), any()))
+        when(vehicleTypeRepository.findByName("FOUR_WHEELER"))
+                .thenReturn(Optional.of(vehicleType));
+        when(reservationRepository.findAvailableSlots(eq(vehicleType), any(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(testSlot)));
+
         Page<ParkingSlot> result = reservationService.getAvailableSlots(
-                VehicleType.FOUR_WHEELER,
+                "FOUR_WHEELER",
                 LocalDateTime.now(),
                 LocalDateTime.now().plusHours(2),
                 pageable
         );
+
         assertEquals(1, result.getContent().size());
         assertEquals(testSlot, result.getContent().get(0));
     }
@@ -140,8 +156,11 @@ class ReservationServiceTest {
     void getReservation_Exists_ReturnsReservation() {
         Reservation reservation = new Reservation();
         reservation.setId(1L);
+
         when(reservationRepository.findById(1L)).thenReturn(Optional.of(reservation));
+
         Reservation result = reservationService.getReservation(1L);
+
         assertNotNull(result);
         assertEquals(1L, result.getId());
     }
@@ -149,6 +168,7 @@ class ReservationServiceTest {
     @Test
     void getReservation_NotExists_ThrowsException() {
         when(reservationRepository.findById(1L)).thenReturn(Optional.empty());
+
         assertThrows(IllegalArgumentException.class, () -> {
             reservationService.getReservation(1L);
         });
@@ -157,13 +177,16 @@ class ReservationServiceTest {
     @Test
     void cancelReservation_Exists_DeletesReservation() {
         when(reservationRepository.existsById(1L)).thenReturn(true);
+
         reservationService.cancelReservation(1L);
+
         verify(reservationRepository, times(1)).deleteById(1L);
     }
 
     @Test
     void cancelReservation_NotExists_ThrowsException() {
         when(reservationRepository.existsById(1L)).thenReturn(false);
+
         assertThrows(IllegalArgumentException.class, () -> {
             reservationService.cancelReservation(1L);
         });

@@ -1,6 +1,5 @@
 package com.parkinglot.dto;
 
-import com.parkinglot.model.VehicleType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -12,7 +11,7 @@ public class SlotRequest {
     private String slotNumber;
 
     @NotNull(message = "Vehicle type is required")
-    private VehicleType vehicleType;
+    private VehicleTypeRequest vehicleType;
 
     public Long getFloorId() {
         return floorId;
@@ -30,11 +29,11 @@ public class SlotRequest {
         this.slotNumber = slotNumber;
     }
 
-    public VehicleType getVehicleType() {
+    public VehicleTypeRequest getVehicleType() {
         return vehicleType;
     }
 
-    public void setVehicleType(VehicleType vehicleType) {
+    public void setVehicleType(VehicleTypeRequest vehicleType) {
         this.vehicleType = vehicleType;
     }
 }

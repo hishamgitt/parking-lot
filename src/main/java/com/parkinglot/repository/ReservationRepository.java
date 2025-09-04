@@ -1,6 +1,7 @@
 package com.parkinglot.repository;
 
 
+import com.parkinglot.dto.SlotStatusResponse;
 import com.parkinglot.model.ParkingSlot;
 import com.parkinglot.model.Reservation;
 import com.parkinglot.model.VehicleType;
@@ -33,4 +34,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("endTime") LocalDateTime endTime,
             Pageable pageable
     );
+
+    boolean existsBySlotId(Long slotId);
 }
