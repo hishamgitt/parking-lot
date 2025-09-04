@@ -38,6 +38,8 @@ GET /reservations/{id} – Fetch reservation details
 
 DELETE /reservations/{id} – Cancel a reservation
 
+GET /allparking - get all Slots and floor details
+
 Business Rules
 
 Start time must be before end time.
